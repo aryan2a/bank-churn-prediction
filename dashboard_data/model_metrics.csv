@@ -1,0 +1,5 @@
+model,stage,roc_auc,roc_auc_std,pr_auc,f1,recall,precision,threshold,accuracy,recall_ci_low,recall_ci_high,precision_ci_low,precision_ci_high,f1_ci_low,f1_ci_high,roc_auc_ci_low,roc_auc_ci_high
+XGBoost,"cross-validation (train, threshold 0.5)",0.8554,0.0061,0.685,0.5933,0.7111,0.5097,0.5,,,,,,,,,
+Random Forest,"cross-validation (train, threshold 0.5)",0.8484,0.0073,0.6544,0.6039,0.6634,0.5545,0.5,,,,,,,,,
+Logistic Regression,"cross-validation (train, threshold 0.5)",0.7563,0.0042,0.4518,0.4796,0.6802,0.3705,0.5,,,,,,,,,
+XGBoost,final (test split),0.8768,,0.7401,0.6522,0.6393,0.6655,0.65,0.8613,0.5831,0.6897,0.6095,0.718,0.6055,0.6932,0.8549,0.8974

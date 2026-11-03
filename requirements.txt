@@ -1,0 +1,6 @@
+# Everything needed to train, serve, run the app and run the tests on your own machine:
+#   pip install -r requirements.txt
+-r requirements-api.txt
+-r requirements-app.txt
+pytest>=8.0
+httpx>=0.27

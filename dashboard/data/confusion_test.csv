@@ -1,0 +1,5 @@
+actual,predicted,cell,count,share_of_actual
+Stayed,Stays,TN,1097,0.918
+Stayed,Leaves,FP,98,0.082
+Left,Stays,FN,110,0.3607
+Left,Leaves,TP,195,0.6393

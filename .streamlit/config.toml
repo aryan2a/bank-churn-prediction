@@ -1,0 +1,17 @@
+[theme]
+base = "dark"
+primaryColor = "#9A9AA2"
+backgroundColor = "#000000"
+secondaryBackgroundColor = "#0E0E0F"
+textColor = "#F3F3F1"
+font = "sans serif"
+
+[server]
+headless = true
+enableStaticServing = true     # serves app/static/ (the bundled fonts)
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

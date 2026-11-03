@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.env
+.ipynb_checkpoints/
+
+# Data and trained models are not committed: the data is not ours to redistribute, and the model is rebuilt with `python -m churn.train`
+data/*.csv
+models/*.joblib
+models/model_card.json
+notebooks/*.joblib

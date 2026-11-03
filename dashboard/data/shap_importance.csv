@@ -1,0 +1,11 @@
+feature,mean_abs_shap,rank
+age,0.8642,1
+products,0.75635,2
+active,0.3936,3
+gender,0.26604,4
+country,0.25112,5
+balance,0.22224,6
+salary,0.07605,7
+credit_score,0.0507,8
+tenure,0.0236,9
+credit_card,0.00505,10

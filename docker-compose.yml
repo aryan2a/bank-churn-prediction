@@ -1,0 +1,31 @@
+name: churn-risk
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: churn-risk-api
+    ports:
+      - "8020:8000"
+    volumes:
+      - ./models:/srv/models:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,sys,urllib.request; sys.exit(0 if json.load(urllib.request.urlopen('http://127.0.0.1:8000/health'))['model_loaded'] else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    image: churn-risk-app
+    ports:
+      - "8520:8501"
+    environment:
+      API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy

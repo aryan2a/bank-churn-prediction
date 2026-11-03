@@ -1,0 +1,6 @@
+# The Streamlit front end. It does not need the model libraries when it talks to the API.
+numpy>=1.26
+pandas>=2.1
+streamlit>=1.50
+plotly>=5.20
+requests>=2.31
