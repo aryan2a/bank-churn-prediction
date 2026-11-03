@@ -4,6 +4,8 @@
 
 Find the bank customers who are most likely to leave, explain why, and give the retention team a call list.
 
+**Live demo:** http://15.252.183.74:8520 (runs on one small AWS EC2 instance over plain HTTP, so it can be offline when the instance is stopped to save cost)
+
 | Part | What it does | Where |
 |---|---|---|
 | Notebook | EDA, outlier check, model comparison, tuning, evaluation, SHAP, dashboard export | `notebooks/churn_prediction_notebook.ipynb` |
@@ -194,7 +196,7 @@ Trade-offs worth knowing:
 - Login is key-only. Port 22 is open to the internet so that GitHub's runners can reach the server. A tighter setup would use AWS Systems Manager or a self-hosted runner.
 - The app is served over plain HTTP with no domain or TLS. That is fine for a demo and not for real customer data.
 - The pipeline deploys code, not models. After retraining, the new model file has to be copied to the server again.
-- There is no permanent live link here: the demo instance can be stopped to save cost, and its public address changes when it is started again.
+- The live demo link is a plain IP address. It is offline while the instance is stopped, and the address changes when the instance is started again, so the link has to be updated then.
 
 ## Folder map
 
