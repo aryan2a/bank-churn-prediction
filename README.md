@@ -1,5 +1,7 @@
 # Bank customer churn: model, API, app and dashboard
 
+[![CI](https://github.com/aryan2a/bank-churn-prediction/actions/workflows/ci.yml/badge.svg)](https://github.com/aryan2a/bank-churn-prediction/actions/workflows/ci.yml)
+
 Find the bank customers who are most likely to leave, explain why, and give the retention team a call list.
 
 | Part | What it does | Where |
@@ -10,14 +12,41 @@ Find the bank customers who are most likely to leave, explain why, and give the 
 | `app/` | Streamlit app: score one customer, score a CSV, read about the model | `streamlit run app/streamlit_app.py` |
 | Power BI | 3-page dashboard: model performance, churn analysis, retention analytics | `dashboard/` (see its README) |
 | `tests/` | 35 tests for the data checks, features, scoring, API, client and app | `pytest` |
+| Docker | One image for the API, one for the app, started together with Docker Compose | `Dockerfile.api`, `Dockerfile.app`, `docker-compose.yml` |
+| CI/CD | GitHub Actions: tests, Docker builds, deploy to the server on every push to `main` | `.github/workflows/ci.yml` |
+| AWS | The Compose stack running on one EC2 instance | see *Deployment on AWS EC2* |
 
-**Status:** notebook, model training, API, app, tests and dashboard are done. Next, step by step: Docker, GitHub Actions and the AWS EC2 deployment.
+**Status:** complete: notebook, model training, API, Streamlit app, tests, Power BI dashboard, Docker, CI/CD with GitHub Actions, and a deployment on AWS EC2.
+
+## Screenshots
+
+**Streamlit app**
+
+![Score a customer tab: call or no-call verdict, risk score, percentile, risk band and the features pushing the score](docs/screenshots/app-score-a-customer.png)
+
+*Score a customer: verdict, score, percentile, risk band and the SHAP drivers (the "likely to stay" example is shown).*
+
+![Batch scoring tab: template CSV download and file upload](docs/screenshots/app-batch-scoring.png)
+
+*Batch scoring: upload a CSV, see how many customers are flagged, download the scored file.*
+
+![About the model tab: held-out test results with 95% ranges and the cross-validated candidate comparison](docs/screenshots/app-about-the-model.png)
+
+*About the model: held-out results with 95% bootstrap ranges, and the candidate comparison.*
+
+**Power BI dashboard** (what each page shows is in [`dashboard/README.md`](dashboard/README.md))
+
+![Dashboard page 1: model performance](dashboard/screenshots/page1_model_performance.png)
+
+![Dashboard page 2: customer churn analysis](dashboard/screenshots/page2_churn_analysis.png)
+
+![Dashboard page 3: retention analytics](dashboard/screenshots/page3_retention_analytics.png)
 
 ## What the model does, and what it does not
 
 - Data: the public 10,000-customer bank churn file, 20.4% of customers left.
 - Model: the best of logistic regression, random forest and XGBoost by 5-fold ROC-AUC (XGBoost), tuned with grid search, then refit on train + validation and tested **once** on 1,500 held-out customers.
-- Held-out results at the chosen threshold (0.65, picked on the validation set to maximise F1): recall about 0.66, precision about 0.67, ROC-AUC about 0.88. `python -m churn.train` prints your own numbers with 95% ranges, and the app shows them on the *About the model* tab.
+- Held-out results at the chosen threshold (0.65, picked on the validation set to maximise F1), from the reference run: precision 0.666 (95% range 0.610 to 0.718), recall 0.639 (0.583 to 0.690), F1 0.652, ROC-AUC 0.877 (0.855 to 0.897), accuracy 0.861. `python -m churn.train` prints your own numbers with 95% ranges, which can differ slightly with other library versions, and the app shows them on the *About the model* tab.
 - The **risk score is a ranking score, not a probability.** The model is trained with class weights, so a score of 0.8 does not mean an 80% chance. Use it to order a call list.
 - The **drivers** are SHAP values. They explain the model's score, not a customer's real reasons for leaving.
 - Gender and country are model inputs. Check fairness and the law before any real use.
@@ -112,27 +141,81 @@ The dashboard lives in `dashboard/`, separate from the app: the `.pbix` file, th
 pytest
 ```
 
-The tests train a tiny model on synthetic customers, so they run anywhere without the real dataset. They cover input validation, feature engineering, score rounding and percentiles, every API endpoint including error cases, the app client, and the Streamlit app (rendered headlessly).
+The tests train a tiny model on synthetic customers, so they run anywhere without the real dataset. They cover input validation, feature engineering, score rounding and percentiles, every API endpoint including error cases, the app client, and the Streamlit app (rendered headlessly). GitHub Actions runs the same suite on every push (see *CI/CD* below).
+
+## Run with Docker
+
+Needs Docker Desktop and a trained model (`models/churn_model.joblib`, created by `python -m churn.train`). The model is **not** baked into an image and is not committed to Git: it is mounted into the API container when it starts.
+
+```powershell
+docker compose up --build
+```
+
+- API docs: http://localhost:8020/docs
+- App: http://localhost:8520
+- Stop: `Ctrl + C`, then `docker compose down`
+
+| File | What it does |
+|---|---|
+| `Dockerfile.api` | `python:3.12-slim` plus `libgomp1` (XGBoost needs it); installs `requirements-api.txt`, copies `churn/` and `api/`, runs uvicorn as a non-root user |
+| `Dockerfile.app` | A lighter image for the Streamlit app (no XGBoost or SHAP), because the app only calls the API |
+| `docker-compose.yml` | Starts both, mounts `models/` read-only into the API, sets `API_URL=http://api:8000` for the app, and makes the app wait until the API health check reports that the model is loaded |
+| `constraints.txt` | Pins numpy, pandas, scipy, scikit-learn, xgboost, shap and joblib to the versions the model was trained with, so a model file trained on one machine loads inside the container |
+| `.dockerignore` | Keeps data, models, notebooks and dashboard files out of the images |
+
+Host ports 8020 and 8520 are used instead of 8000 and 8501 so the containers do not clash with a locally running `uvicorn` or `streamlit`.
+
+## CI/CD with GitHub Actions
+
+`.github/workflows/ci.yml` runs on every push to `main` and on every pull request.
+
+| Job | When | What it does |
+|---|---|---|
+| `test` | always | Installs `requirements.txt` on a clean Ubuntu runner and runs `pytest` (35 tests on synthetic data, so no dataset is needed) |
+| `docker` | after `test` passes | Builds both images, so a broken Dockerfile or a missing `COPY` is caught before deployment |
+| `deploy` | after `test` and `docker`, only on a push to `main` | Connects to the server over SSH, runs `git pull` and `docker compose up --build -d`, removes old images, and fails if the API health check does not answer |
+
+The deploy job uses a dedicated SSH key stored in GitHub **Secrets** (`EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`). No key or server address is stored in the repository, and `*.pem` is in `.gitignore`.
+
+## Deployment on AWS EC2
+
+The same Compose stack runs on one Ubuntu 24.04 EC2 instance in the Mumbai region (ap-south-1). How it was set up:
+
+1. Launched the instance with a security group that opens port **8520** (the app) to the internet. The API port **8020** is not opened: only the app container and the server itself can reach it.
+2. Installed Docker and the Compose plugin: `sudo apt-get install -y docker.io docker-compose-v2`.
+3. Cloned this repository on the server.
+4. Copied the model, which is not in Git: `scp -i <key>.pem models/churn_model.joblib models/model_card.json ubuntu@<server-ip>:~/bank-churn-prediction/models/`
+5. Started everything: `docker compose up --build -d`.
+
+From then on, a push to `main` redeploys through GitHub Actions.
+
+Trade-offs worth knowing:
+
+- Login is key-only. Port 22 is open to the internet so that GitHub's runners can reach the server. A tighter setup would use AWS Systems Manager or a self-hosted runner.
+- The app is served over plain HTTP with no domain or TLS. That is fine for a demo and not for real customer data.
+- The pipeline deploys code, not models. After retraining, the new model file has to be copied to the server again.
+- There is no permanent live link here: the demo instance can be stopped to save cost, and its public address changes when it is started again.
 
 ## Folder map
 
 ```
-notebooks/    the analysis notebook
-churn/        config, data checks, features, training, prediction, SHAP explanations
-api/          FastAPI app and request/response schemas
-app/          Streamlit app, API client, look and feel (ui.py), bundled fonts (static/fonts)
-tests/        pytest suite (synthetic data)
-models/       churn_model.joblib + model_card.json (created by training, not committed)
-data/         churn_raw.csv (not committed)
-dashboard/    Power BI report (.pbix), its CSVs, page screenshots
+.github/workflows/   ci.yml: tests, Docker builds, deploy
+notebooks/           the analysis notebook
+churn/               config, data checks, features, training, prediction, SHAP explanations
+api/                 FastAPI app and request/response schemas
+app/                 Streamlit app, API client, look and feel (ui.py), bundled fonts (static/fonts)
+tests/               pytest suite (synthetic data)
+models/              churn_model.joblib + model_card.json (created by training, not committed)
+data/                churn_raw.csv (not committed)
+dashboard/           Power BI report (.pbix), its CSVs, page screenshots
+docs/screenshots/    app screenshots shown above
+Dockerfile.api  Dockerfile.app  docker-compose.yml  .dockerignore  constraints.txt
 requirements.txt  requirements-api.txt  requirements-app.txt
 ```
 
-## Next
+## Possible next steps (not done)
 
-- Docker: one image for the API and one for the app, run together with Docker Compose.
-- GitHub Actions: run the tests on every push and build the images.
-- AWS EC2: run the containers on an instance, with the model file copied to it.
+A domain with HTTPS in front of the app; calibrated probabilities (the score is a ranking, not a probability); a retraining step that publishes the model to S3 so the server fetches it instead of `scp`; tighter SSH access; monitoring of input drift.
 
 ## Credits
 
