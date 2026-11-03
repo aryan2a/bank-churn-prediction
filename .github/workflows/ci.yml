@@ -26,3 +26,25 @@ jobs:
         run: docker build -f Dockerfile.api -t churn-risk-api .
       - name: Build app image
         run: docker build -f Dockerfile.app -t churn-risk-app .
+
+  deploy:
+    needs: [test, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare SSH key
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+      - name: Deploy to EC2
+        env:
+          HOST: ${{ secrets.EC2_HOST }}
+          USER_NAME: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$USER_NAME@$HOST" \
+            "cd ~/bank-churn-prediction && git pull && docker compose up --build -d && docker image prune -f && curl -fsS http://127.0.0.1:8020/health"
