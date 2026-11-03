@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .env
 .ipynb_checkpoints/
+*.pem
 
 # Data and trained models are not committed: the data is not ours to redistribute, and the model is rebuilt with `python -m churn.train`
 data/*.csv
