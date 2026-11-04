@@ -16,6 +16,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    
+    restart: unless-stopped
 
   app:
     build:
@@ -29,3 +31,5 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    
+    restart: unless-stopped
